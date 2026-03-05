@@ -1,23 +1,10 @@
-import { create } from 'zustand'
+import * as THREE from 'three'
 
-interface CubeState {
-    hovered: boolean
-    clicked: boolean
-    bgOffset: { x: number; y: number }
-    setHovered: (hovered: boolean) => void
-    setClicked: (clicked: boolean) => void
-    toggleClicked: () => void
-    setBgOffset: (dx: number, dy: number) => void
+// Shared mutable vectors for cross-component communication (updated every frame)
+// CubeModel writes → LorentzParticles reads
+export const sharedState = {
+  mouseWorld: new THREE.Vector3(),
+  cubeCenter: new THREE.Vector3(),
+  visibleCount: 1,
+  guideIndex: 0,
 }
-
-export const useCubeStore = create<CubeState>((set) => ({
-    hovered: false,
-    clicked: false,
-    bgOffset: { x: 0, y: 0 },
-    setHovered: (hovered) => set({ hovered }),
-    setClicked: (clicked) => set({ clicked }),
-    toggleClicked: () => set((state) => ({ clicked: !state.clicked })),
-    setBgOffset: (dx, dy) => set((state) => ({
-        bgOffset: { x: state.bgOffset.x + dx, y: state.bgOffset.y + dy }
-    }))
-}))
