@@ -77,11 +77,11 @@ export function CoreSystem() {
       .add(float(1.0).sub(shaderUniforms.pulseAmp))
 
     const centeredUV = uv().sub(0.5)
-    const radialDist = centeredUV.dot(centeredUV).sqrt().mul(2.0)
+    const radialDist = centeredUV.dot(centeredUV).sqrt().mul(1.4)
 
-    const outerGlow = float(1.0).sub(radialDist.mul(0.6)).max(float(0.0)).pow(float(0.5))
+    const outerGlow = float(1.0).sub(radialDist.mul(0.6)).max(float(0.0)).pow(float(0.4))
     const coreGlow = float(1.0).sub(radialDist).max(float(0.0)).pow(shaderUniforms.glowPower)
-    const sparkle = float(1.0).sub(radialDist.mul(4.0)).max(float(0.0)).pow(float(5.0))
+    const sparkle = float(1.0).sub(radialDist.mul(3.0)).max(float(0.0)).pow(float(5.0))
 
     const outerEmission = circleNode.rgb.mul(instCol.mul(shaderUniforms.outerGlowStrength)).mul(outerGlow)
     const coreEmission = pointNode.rgb.mul(instCol.mul(shaderUniforms.coreStrength)).mul(coreGlow)
