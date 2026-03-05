@@ -7,4 +7,5 @@ export const sharedState = {
   cubeCenter: new THREE.Vector3(),
   visibleCount: 1,
   guideIndex: 0,
+  guideColorIndex: 0,
 }

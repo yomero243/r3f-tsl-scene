@@ -1,24 +1,24 @@
-import { Suspense, useRef, useMemo } from 'react'
+import { Suspense, useRef, useMemo, useState, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useGLTF, OrbitControls, Environment, useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { MeshPhysicalNodeMaterial, MeshBasicNodeMaterial, WebGPURenderer } from 'three/webgpu'
-import { color, sin, cos, time, vec3, texture, normalWorld, positionViewDirection, positionLocal, attribute, float, normalMap } from 'three/tsl'
+import { color, sin, time, vec3, texture, attribute, float, normalMap, uv } from 'three/tsl'
 import { sharedState } from './store'
 
 function Floor() {
   const noiseTex = useTexture('/src/assets/floor_noise.webp')
   const material = useMemo(() => {
     noiseTex.wrapS = noiseTex.wrapT = THREE.RepeatWrapping
-    noiseTex.repeat.set(10, 10)
+    noiseTex.repeat.set(2, 2)
     const mat = new MeshPhysicalNodeMaterial()
     const noiseVal = texture(noiseTex).r
     // El noise modula sutilmente el color base (oscuro con variaciones visibles)
     mat.colorNode = vec3(noiseVal.mul(0.04), noiseVal.mul(0.04), noiseVal.mul(0.08))
-    mat.metalnessNode = float(1.0)
-    mat.roughnessNode = noiseVal.mul(0.2).add(0.02)
-    mat.transparent = true
-    mat.opacityNode = float(0.9)
+    mat.metalnessNode = float(1)
+    mat.roughnessNode = noiseVal.mul(0.01).add(0.22)
+    mat.transparent = false
+    mat.opacityNode = float(5)
     return mat
   }, [noiseTex])
 
@@ -40,11 +40,11 @@ const SYSTEM = {
   DAMPING: 1.2,
   MAX_SPEED: 12.0,
   SOFT_MIN: 0.4,
-  REPULSION: 8.0,
-  REPULSION_RADIUS: 1.0,
+  REPULSION: 18.0,
+  REPULSION_RADIUS: 3.0,
   SIZE_MIN: 0.15,
   SIZE_MAX: 0.5,
-  SPAWN_RADIUS: 4.0,
+  SPAWN_RADIUS: 7.0,
   BOUNDARY: 20.0,
 }
 
@@ -55,9 +55,13 @@ const TINTS = [
 
 function CoreSystem() {
   const meshRef = useRef<THREE.InstancedMesh>(null)
-  const LIGHT_COUNT = 5
-  const lightRefs = useRef<(THREE.PointLight | null)[]>(Array(LIGHT_COUNT).fill(null))
+  const lightGroupRef = useRef<THREE.Group>(null)
+  const lightsRef = useRef<THREE.PointLight[]>([])
+
+  // Cargamos ambas texturas de las referencias (point para centro + circle para borde/halo)
   const pointTex = useTexture('/src/assets/point.png')
+  const circleTex = useTexture('/src/assets/circle.webp')
+
   const dummy = useMemo(() => new THREE.Object3D(), [])
   const { COUNT } = SYSTEM
 
@@ -77,9 +81,14 @@ function CoreSystem() {
       pos[i3 + 1] = center.y + r * Math.sin(phi) * Math.sin(theta)
       pos[i3 + 2] = center.z + r * Math.cos(phi)
 
-      vel[i3] = (Math.random() - 0.5) * 2
-      vel[i3 + 1] = (Math.random() - 0.5) * 2
-      vel[i3 + 2] = (Math.random() - 0.5) * 2
+      // Velocidad tangencial para órbita en XZ alrededor del cubo
+      const dx = pos[i3] - center.x
+      const dz = pos[i3 + 2] - center.z
+      const rXZ = Math.sqrt(dx * dx + dz * dz) || 1
+      const orbitalSpeed = 1.5 + Math.random() * 1.0
+      vel[i3] = -dz / rXZ * orbitalSpeed
+      vel[i3 + 1] = (Math.random() - 0.5) * 4.0
+      vel[i3 + 2] = dx / rXZ * orbitalSpeed
 
       const tint = TINTS[i % TINTS.length]
       colors[i3] = tint[0]
@@ -90,42 +99,48 @@ function CoreSystem() {
     return { pos, vel, colors, sizes }
   }, [COUNT])
 
+  const geometry = useMemo(() => {
+    const geo = new THREE.PlaneGeometry(2.5, 2.5)
+    geo.setAttribute('aColor', new THREE.InstancedBufferAttribute(new Float32Array(COUNT * 3).fill(1), 3))
+    return geo
+  }, [COUNT])
+
   const material = useMemo(() => {
     const mat = new MeshBasicNodeMaterial()
     mat.transparent = true
     mat.depthWrite = false
-    mat.blending = THREE.AdditiveBlending
-
-    const texNode = texture(pointTex)
-    const pulse = sin(time.mul(2)).mul(0.2).add(0.8)
-
-    // Shader Procedural: Fresnel manual + Distorsión de energía avanzada
-    // Usamos positionViewDirection y normalWorld verificados en TSL r183
-    const viewDotNormal = normalWorld.dot(positionViewDirection)
-    const rim = viewDotNormal.oneMinus().pow(3.5).mul(vec3(1.0, 0.9, 0.8))
-
-    // Ruido procedural combinando senos y cosenos en 2 ejes mas tiempo
-    const energy = sin(positionLocal.y.mul(25).add(time.mul(10)))
-      .mul(cos(positionLocal.x.mul(25).add(time.mul(7))))
-      .mul(0.3).add(0.7)
-
-    // Recuperamos el color de instancia mediante el atributo directo y lo casteamos a vec3
-    const instCol = vec3(attribute('instanceColor', 'vec3'))
-
-    mat.colorNode = instCol.mul(texNode).mul(pulse).mul(10.0).add(rim.mul(6.0)).mul(energy)
-    mat.opacityNode = texNode.a.mul(pulse).mul(1.5).mul(energy)
+    mat.blending = THREE.AdditiveBlending // La magia lumínica ocurre aquí
     mat.side = THREE.DoubleSide
+
+    const pointNode = texture(pointTex)
+    const circleNode = texture(circleTex)
+    const instCol = vec3(attribute('aColor', 'vec3'))
+    const pulse = sin(time.mul(2.5)).mul(0.15).add(0.85)
+
+    // Glow radial suave basado en UV (1 en centro, 0 en bordes)
+    const centeredUV = uv().sub(0.5)
+    const radialDist = centeredUV.dot(centeredUV).sqrt().mul(2.0)
+    const glowFalloff = float(1.0).sub(radialDist).max(float(0.0)).pow(float(1.2))
+
+    const coreColor = instCol.mul(5.0)
+    const coreEmission = pointNode.rgb.mul(coreColor).mul(glowFalloff.mul(1.5).add(0.3))
+
+    const rimColor = instCol.mul(vec3(1.1, 0.95, 0.8)).mul(7.0)
+    const rimEmission = circleNode.rgb.mul(rimColor).mul(glowFalloff)
+
+    mat.colorNode = coreEmission.add(rimEmission).mul(pulse)
+
     return mat
-  }, [pointTex])
+  }, [pointTex, circleTex])
 
 
   const _dir = useMemo(() => new THREE.Vector3(), [])
   const _force = useMemo(() => new THREE.Vector3(), [])
-  const _B = useMemo(() => new THREE.Vector3(0, SYSTEM.B_STRENGTH, 0), [])
+  const _B = useMemo(() => new THREE.Vector3(SYSTEM.B_STRENGTH * 0.4, SYSTEM.B_STRENGTH, 0), [])
   const _cross = useMemo(() => new THREE.Vector3(), [])
   const _color = useMemo(() => new THREE.Color(), [])
 
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
     if (!meshRef.current) return
     const dt = Math.min(delta, 0.05)
     const { pos, vel, colors, sizes } = state
@@ -206,45 +221,61 @@ function CoreSystem() {
       dummy.position.set(pos[i3], pos[i3 + 1], pos[i3 + 2])
       const baseScale = sizes[i]
       dummy.scale.setScalar(i === guide ? baseScale * 2.5 : baseScale)
+
+      // [Modificación Crítica] Forzar billboarding ortogonal
+      dummy.lookAt(camera.position)
+
       dummy.updateMatrix()
       meshRef.current.setMatrixAt(i, dummy.matrix)
 
       if (i === guide) {
-        _color.set('#ff7700')
+        const tint = TINTS[sharedState.guideColorIndex]
+        _color.setRGB(tint[0], tint[1], tint[2])
       } else {
         _color.setRGB(colors[i3], colors[i3 + 1], colors[i3 + 2])
       }
-      meshRef.current.setColorAt(i, _color)
+      _color.toArray(meshRef.current.geometry.attributes.aColor.array as Float32Array, i * 3)
 
     }
     meshRef.current.instanceMatrix.needsUpdate = true
-    if (meshRef.current.instanceColor) meshRef.current.instanceColor.needsUpdate = true
+      ; (meshRef.current.geometry.attributes.aColor as THREE.InstancedBufferAttribute).needsUpdate = true
 
-    // Distribuir los lights entre las esferas visibles
-    for (let l = 0; l < LIGHT_COUNT; l++) {
-      const light = lightRefs.current[l]
-      if (!light) continue
-      const targetI = l === 0 ? guide : Math.floor((l / LIGHT_COUNT) * active)
-      if (targetI >= active) { light.intensity = 0; continue }
-      const t3 = targetI * 3
-      light.position.set(pos[t3], pos[t3 + 1], pos[t3 + 2])
-      light.intensity = 60
-      if (targetI === guide) {
-        light.color.set('#ff7700')
-      } else {
-        light.color.setRGB(colors[t3], colors[t3 + 1], colors[t3 + 2])
+    // Inicializar luces la primera vez
+    if (lightsRef.current.length === 0 && lightGroupRef.current) {
+      for (let i = 0; i < COUNT; i++) {
+        const light = new THREE.PointLight(0xffffff, 0, 12, 2)
+        lightGroupRef.current.add(light)
+        lightsRef.current.push(light)
       }
+    }
+
+    // Actualizar luces activas
+    for (let i = 0; i < active; i++) {
+      const i3 = i * 3
+      const light = lightsRef.current[i]
+      if (!light) continue
+      light.position.set(pos[i3], pos[i3 + 1], pos[i3 + 2])
+      if (i === guide) {
+        const tint = TINTS[sharedState.guideColorIndex]
+        light.color.setRGB(tint[0], tint[1], tint[2])
+        light.intensity = 120
+        light.distance = 30
+      } else {
+        light.color.setRGB(colors[i3], colors[i3 + 1], colors[i3 + 2])
+        light.intensity = 20
+        light.distance = 12
+      }
+    }
+    // Apagar luces inactivas
+    for (let i = active; i < COUNT; i++) {
+      if (lightsRef.current[i]) lightsRef.current[i].intensity = 0
     }
   })
 
   return (
     <>
-      <instancedMesh ref={meshRef} args={[undefined, undefined, COUNT]} material={material}>
-        <sphereGeometry args={[0.5, 12, 10]} />
-      </instancedMesh>
-      {Array.from({ length: LIGHT_COUNT }, (_, i) => (
-        <pointLight key={i} ref={el => { lightRefs.current[i] = el }} intensity={0} distance={12} decay={1.5} />
-      ))}
+      <instancedMesh ref={meshRef} args={[geometry, undefined, COUNT]} material={material} />
+      <group ref={lightGroupRef} />
     </>
   )
 }
@@ -304,22 +335,30 @@ function CubeModel() {
   }, [scene, normalTex, noiseTex])
 
   useFrame(({ camera, pointer }, delta) => {
-    if (cubeRef.current) {
-      cubeRef.current.position.set(0, cubeYOffset.current + 1.5, 0)
-      autoRotY.current += 0.005
-      const autoQuat = new THREE.Quaternion().setFromEuler(
-        new THREE.Euler(0, autoRotY.current, 0)
-      )
-      cubeRef.current.quaternion.slerp(autoQuat, delta * 2)
-    }
-
     const centerY = cubeYOffset.current + cubeCenterY.current + 1.5
+
+    // 1. Actualizar mouse
     floorPlane.current.set(new THREE.Vector3(0, 1, 0), -centerY)
     raycaster.current.setFromCamera(pointer, camera)
     const hit = new THREE.Vector3()
     raycaster.current.ray.intersectPlane(floorPlane.current, hit)
     if (hit) mouseTarget.current.copy(hit)
     mouseCurrent.current.lerp(mouseTarget.current, Math.min(delta * 5, 1.0))
+
+    // 2. Rotación del cubo: hacia el mouse si hover, auto-rot si no
+    if (cubeRef.current) {
+      cubeRef.current.position.set(0, cubeYOffset.current + 1.5, 0)
+      if (isHovering.current) {
+        const angle = Math.atan2(mouseCurrent.current.x, mouseCurrent.current.z)
+        const targetQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, angle, 0))
+        cubeRef.current.quaternion.slerp(targetQuat, Math.min(delta * 4, 1))
+        autoRotY.current = angle // sincroniza para que la auto-rot continúe sin salto
+      } else {
+        autoRotY.current += 0.005
+        const autoQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, autoRotY.current, 0))
+        cubeRef.current.quaternion.slerp(autoQuat, delta * 2)
+      }
+    }
 
     sharedState.mouseWorld.copy(mouseCurrent.current)
     sharedState.cubeCenter.set(0, centerY, 0)
@@ -332,6 +371,7 @@ function CubeModel() {
         if (sharedState.visibleCount < SYSTEM.COUNT) {
           sharedState.guideIndex = sharedState.visibleCount
           sharedState.visibleCount++
+          sharedState.guideColorIndex = (sharedState.guideColorIndex + 1) % TINTS.length
         }
       }}
       onPointerOver={() => { document.body.style.cursor = 'pointer'; isHovering.current = true }}
@@ -355,44 +395,92 @@ function CubeModel() {
 }
 
 export default function App() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isReady, setIsReady] = useState(false)
+  const rendererRef = useRef<WebGPURenderer | null>(null)
+
+  useEffect(() => {
+    if (!canvasRef.current || isReady) return
+
+    let isMounted = true
+    const initWebGPU = async () => {
+      try {
+        const renderer = new WebGPURenderer({
+          canvas: canvasRef.current!,
+          antialias: true,
+          alpha: true
+        })
+        renderer.toneMapping = THREE.ACESFilmicToneMapping
+        renderer.toneMappingExposure = 1.2
+
+        await renderer.init()
+
+        if (isMounted) {
+          rendererRef.current = renderer
+          setIsReady(true)
+        }
+      } catch (error) {
+        console.error("Hardware Context Allocation Failed:", error)
+      }
+    }
+
+    initWebGPU()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <Canvas
-        style={{ width: '100%', height: '100%' }}
-        camera={{ position: [0, 4, 8], fov: 45 }}
-        dpr={[1, 2]}
-        gl={(props) => {
-          const renderer = new WebGPURenderer({ canvas: props.canvas as HTMLCanvasElement, antialias: true, alpha: true })
-          renderer.toneMapping = THREE.ACESFilmicToneMapping
-          renderer.toneMappingExposure = 1.2
-          renderer.init().catch(console.error)
-          return renderer as any
-        }}
-      >
-        <color attach="background" args={['#020205']} />
-        <fog attach="fog" args={['#020205', 8, 30]} />
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', background: '#020205' }}>
 
-        <ambientLight intensity={0.2} />
-        <directionalLight position={[5, 10, 5]} intensity={0.5} />
-        <pointLight position={[-3, 4, -3]} intensity={2} color="#2244ff" />
-        <pointLight position={[0, 6, 0]} intensity={2} color="#ffffff" />
+      {/* 1. Underlying persistent native HTML canvas for context allocation */}
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+      />
 
-        <Environment preset="city" />
+      {/* 2. Loading state overlay while waiting for compute pipelines */}
+      {!isReady && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffcc', fontFamily: 'monospace', zIndex: 10 }}>
+          Allocating WebGPU Compute Pipelines...
+        </div>
+      )}
 
-        <Suspense fallback={null}>
-          <Floor />
-          {/* Objetos Originales */}
-          <CubeModel />
-          <CoreSystem />
-        </Suspense>
+      {/* 3. React Three Fiber bindings to pass our generated context */}
+      {isReady && rendererRef.current && (
+        <Canvas
+          camera={{ position: [0, 4, 8], fov: 45 }}
+          dpr={[1, 2]}
+          style={{ position: 'absolute', top: 0, left: 0, zIndex: 2 }}
+          gl={() => rendererRef.current as any}
+        >
+          <color attach="background" args={['#020205']} />
+          <fog attach="fog" args={['#020205', 8, 30]} />
 
-        <OrbitControls
-          enablePan={false}
-          maxPolarAngle={Math.PI / 2.05}
-          minDistance={3}
-          maxDistance={20}
-        />
-      </Canvas>
+          <ambientLight intensity={0.2} />
+          <directionalLight position={[5, 10, 5]} intensity={0.5} />
+
+          {/* Luces globales conservadas para iluminar el cubo central */}
+          <pointLight position={[-3, 4, -3]} intensity={1} color="#2244ff" />
+          <pointLight position={[0, 6, 0]} intensity={1} color="#ffffff" />
+
+          <Environment preset="city" environmentIntensity={1} />
+
+          <Suspense fallback={null}>
+            <Floor />
+            <CubeModel />
+            <CoreSystem />
+          </Suspense>
+
+          <OrbitControls
+            enablePan={false}
+            maxPolarAngle={Math.PI / 2.05}
+            minDistance={3}
+            maxDistance={20}
+          />
+        </Canvas>
+      )}
     </div>
   )
 }
