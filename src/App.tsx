@@ -1,19 +1,20 @@
 import { Suspense, useRef, useState, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Environment } from '@react-three/drei'
+import { Environment, Stats } from '@react-three/drei'
 import * as THREE from 'three'
 import { WebGPURenderer } from 'three/webgpu'
 import { Floor } from './components/Floor'
 import { CoreSystem } from './components/CoreSystem'
 import { CubeModel } from './components/CubeModel'
 import { CameraController } from './components/CameraController'
-import { DebugGUI, EnvSync } from './components/DebugGUI'
+import { EnvSync } from './components/DebugGUI'
 
 export { configState } from './config'
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isReady, setIsReady] = useState(false)
+  const [gpuError, setGpuError] = useState(false)
   const rendererRef = useRef<WebGPURenderer | null>(null)
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function App() {
         }
       } catch (error) {
         console.error('Hardware Context Allocation Failed:', error)
+        if (isMounted) setGpuError(true)
       }
     }
 
@@ -50,13 +52,19 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', backgroundImage: 'url(/assets/cube_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-      <DebugGUI />
-      <canvas
+<canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
       />
 
-      {!isReady && (
+      {gpuError && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ff4444', fontFamily: 'monospace', zIndex: 10, gap: 12 }}>
+          <span style={{ fontSize: '1.1rem' }}>WebGPU not available</span>
+          <span style={{ opacity: 0.6, fontSize: '0.85rem' }}>Requires Chrome 113+, Edge 113+, or Safari 18+</span>
+        </div>
+      )}
+
+      {!isReady && !gpuError && (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#00ffcc', fontFamily: 'monospace', zIndex: 10 }}>
           Allocating WebGPU Compute Pipelines...
         </div>
@@ -69,10 +77,8 @@ export default function App() {
           style={{ position: 'absolute', top: 0, left: 0, zIndex: 2 }}
           gl={() => rendererRef.current as any}
         >
-          <ambientLight intensity={0.2} />
-          <directionalLight position={[5, 10, 5]} intensity={0.8} />
-
-          <Environment preset="studio" />
+<Environment preset="studio" />
+          <Stats />
           <EnvSync />
 
           <CameraController />

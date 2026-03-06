@@ -64,6 +64,7 @@ export function CoreSystem() {
     const mat = new MeshBasicNodeMaterial()
     mat.transparent = true
     mat.depthWrite = false
+    mat.depthTest = false
     mat.blending = THREE.AdditiveBlending
     mat.toneMapped = false
     mat.side = THREE.DoubleSide
@@ -101,21 +102,38 @@ export function CoreSystem() {
   const _cross = useMemo(() => new THREE.Vector3(), [])
   const _color = useMemo(() => new THREE.Color(), [])
   const _lightOffset = useMemo(() => new THREE.Vector3(), [])
+  const _guideTarget = useMemo(() => new THREE.Vector3(), [])
+  const _ray = useMemo(() => new THREE.Ray(), [])
+  const _sphere = useMemo(() => new THREE.Sphere(), [])
 
-  useEffect(() => () => {
-    geometry.dispose()
-    material.dispose()
-    lightsRef.current.forEach(l => l.removeFromParent())
-    lightsRef.current = []
+  useEffect(() => {
+    const group = lightGroupRef.current
+    if (!group) return
+    for (let i = 0; i < SYSTEM.MAX_LIGHTS; i++) {
+      const light = new THREE.PointLight(0xffffff, 0, 12, 2)
+      group.add(light)
+      lightsRef.current.push(light)
+    }
+    return () => {
+      lightsRef.current.forEach(l => { l.removeFromParent(); l.dispose() })
+      lightsRef.current = []
+      geometry.dispose()
+      material.dispose()
+    }
   }, [geometry, material])
 
-  useFrame(({ camera }, delta) => {
+  useFrame(({ camera, pointer }, delta) => {
     if (!meshRef.current) return
     const dt = Math.min(delta, 0.05)
     const { pos, vel, colors, sizes } = state
     const mouse = sharedState.mouseWorld
     const cube = sharedState.cubeCenter
     const { visibleCount: active, guideIndex: guide, guideColorIndex } = useSceneStore.getState()
+
+    _ray.origin.setFromMatrixPosition(camera.matrixWorld)
+    _ray.direction.set(pointer.x, pointer.y, 0.5).unproject(camera).sub(_ray.origin).normalize()
+    _sphere.set(cube, SYSTEM.BOUNDARY * 0.6)
+    if (!_ray.intersectSphere(_sphere, _guideTarget)) _guideTarget.copy(mouse)
 
     _B.set(SYSTEM.B_STRENGTH * 0.4, SYSTEM.B_STRENGTH, 0)
 
@@ -138,7 +156,7 @@ export function CoreSystem() {
 
       if (i === guide) {
         _dir.set(pos[i3], pos[i3 + 1], pos[i3 + 2])
-        _dir.lerp(mouse, Math.min(delta * 15, 1.0))
+        _dir.lerp(_guideTarget, Math.min(delta * 15, 1.0))
         pos[i3] = _dir.x; pos[i3 + 1] = _dir.y; pos[i3 + 2] = _dir.z
         vel[i3] = 0; vel[i3 + 1] = 0; vel[i3 + 2] = 0
       } else {
@@ -149,8 +167,19 @@ export function CoreSystem() {
         let denom = Math.max(dist * dist * dist, SYSTEM.SOFT_MIN)
         _force.addScaledVector(_dir, SYSTEM.E_CUBE / denom)
 
-        if (dist < SYSTEM.REPULSION_RADIUS && dist > 0.01) {
-          _force.addScaledVector(_dir, -SYSTEM.REPULSION / (dist * dist))
+        if (dist < SYSTEM.CUBE_RADIUS && dist > 0.001) {
+          const nx = _dir.x / dist
+          const ny = _dir.y / dist
+          const nz = _dir.z / dist
+          const vDotN = vel[i3] * nx + vel[i3 + 1] * ny + vel[i3 + 2] * nz
+          if (vDotN > 0) {
+            vel[i3]     -= 2 * vDotN * nx
+            vel[i3 + 1] -= 2 * vDotN * ny
+            vel[i3 + 2] -= 2 * vDotN * nz
+          }
+          pos[i3]     = targetX - nx * SYSTEM.CUBE_RADIUS
+          pos[i3 + 1] = targetY - ny * SYSTEM.CUBE_RADIUS
+          pos[i3 + 2] = targetZ - nz * SYSTEM.CUBE_RADIUS
         }
 
         _dir.set(mouse.x - pos[i3], mouse.y - pos[i3 + 1], mouse.z - pos[i3 + 2])
@@ -158,8 +187,28 @@ export function CoreSystem() {
         denom = Math.max(dist * dist * dist, SYSTEM.SOFT_MIN)
         _force.addScaledVector(_dir, SYSTEM.E_MOUSE / denom)
 
+        if (guide < active) {
+          const g3 = guide * 3
+          _dir.set(pos[g3] - pos[i3], pos[g3 + 1] - pos[i3 + 1], pos[g3 + 2] - pos[i3 + 2])
+          dist = _dir.length()
+          denom = Math.max(dist * dist * dist, SYSTEM.SOFT_MIN)
+          _force.addScaledVector(_dir, SYSTEM.E_GUIDE / denom)
+        }
+
         _cross.set(vel[i3], vel[i3 + 1], vel[i3 + 2]).cross(_B)
         _force.add(_cross)
+
+        const rdx = pos[i3] - targetX
+        const rdz = pos[i3 + 2] - targetZ
+        const rXZ = Math.sqrt(rdx * rdx + rdz * rdz) || 1
+        const tanX = -rdz / rXZ
+        const tanZ = rdx / rXZ
+        const vTan = vel[i3] * tanX + vel[i3 + 2] * tanZ
+        const deficit = SYSTEM.ORBIT_TARGET_SPEED - vTan
+        if (deficit > 0) {
+          _force.x += tanX * SYSTEM.ORBIT_FORCE * deficit
+          _force.z += tanZ * SYSTEM.ORBIT_FORCE * deficit
+        }
 
         vel[i3] += _force.x * dt; vel[i3 + 1] += _force.y * dt; vel[i3 + 2] += _force.z * dt
 
@@ -170,19 +219,33 @@ export function CoreSystem() {
         if (speed > SYSTEM.MAX_SPEED) {
           const s = SYSTEM.MAX_SPEED / speed
           vel[i3] *= s; vel[i3 + 1] *= s; vel[i3 + 2] *= s
+        } else if (speed > 0.001 && speed < SYSTEM.MIN_ORBIT_SPEED) {
+          const s = SYSTEM.MIN_ORBIT_SPEED / speed
+          vel[i3] *= s; vel[i3 + 1] *= s; vel[i3 + 2] *= s
         }
 
         pos[i3] += vel[i3] * dt; pos[i3 + 1] += vel[i3 + 1] * dt; pos[i3 + 2] += vel[i3 + 2] * dt
 
+        if (pos[i3 + 1] < 0.5) {
+          pos[i3 + 1] = 0.5
+          if (vel[i3 + 1] < 0) vel[i3 + 1] *= -0.6
+        }
+
         _dir.set(pos[i3] - targetX, pos[i3 + 1] - targetY, pos[i3 + 2] - targetZ)
-        if (_dir.length() > SYSTEM.BOUNDARY || pos[i3 + 1] < 0.5) {
-          pos[i3] = targetX; pos[i3 + 1] = targetY; pos[i3 + 2] = targetZ
-          vel[i3] = 0; vel[i3 + 1] = 0; vel[i3 + 2] = 0
+        if (_dir.length() > SYSTEM.BOUNDARY) {
+          const angle = Math.random() * Math.PI * 2
+          const spawnR = SYSTEM.CUBE_RADIUS * 2.0
+          pos[i3]     = targetX + Math.cos(angle) * spawnR
+          pos[i3 + 1] = targetY
+          pos[i3 + 2] = targetZ + Math.sin(angle) * spawnR
+          vel[i3]     = -Math.sin(angle) * SYSTEM.ORBIT_TARGET_SPEED
+          vel[i3 + 1] = 0
+          vel[i3 + 2] = Math.cos(angle) * SYSTEM.ORBIT_TARGET_SPEED
         }
       }
 
       dummy.position.set(pos[i3], pos[i3 + 1], pos[i3 + 2])
-      dummy.scale.setScalar(i === guide ? sizes[i] * 2.5 : sizes[i])
+      dummy.scale.setScalar((i === guide ? sizes[i] * 2.5 : sizes[i]) * SYSTEM.SIZE_SCALE)
       dummy.lookAt(camera.position)
       dummy.updateMatrix()
       meshRef.current.setMatrixAt(i, dummy.matrix)
@@ -198,14 +261,6 @@ export function CoreSystem() {
 
     meshRef.current.instanceMatrix.needsUpdate = true
       ; (meshRef.current.geometry.attributes.aColor as THREE.InstancedBufferAttribute).needsUpdate = true
-
-    if (lightsRef.current.length === 0 && lightGroupRef.current) {
-      for (let i = 0; i < SYSTEM.MAX_LIGHTS; i++) {
-        const light = new THREE.PointLight(0xffffff, 0, 12, 2)
-        lightGroupRef.current.add(light)
-        lightsRef.current.push(light)
-      }
-    }
 
     const LIGHT_STICK = LIGHTS.lightStick
     let lightSlot = 0

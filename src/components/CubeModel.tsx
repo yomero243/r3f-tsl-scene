@@ -22,7 +22,6 @@ export function CubeModel() {
   const raycaster = useRef(new THREE.Raycaster())
   const floorPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const isHovering = useRef(false)
-  const mouseFollowActive = useRef(false)
   const autoRotY = useRef(0)
   const cubeLightRef = useRef<THREE.PointLight>(null)
 
@@ -50,7 +49,7 @@ export function CubeModel() {
         mat.roughnessNode = cubeUniforms.roughness
         mat.transparent = true
         mat.opacityNode = cubeUniforms.opacity
-        mat.side = THREE.FrontSide
+        mat.side = THREE.DoubleSide
         mat.transmissionNode = cubeUniforms.transmission
         mat.iorNode = cubeUniforms.ior
         mat.thicknessNode = cubeUniforms.thickness
@@ -66,6 +65,7 @@ export function CubeModel() {
   }, [scene, normalTex, noiseTex])
 
   useEffect(() => () => {
+    document.body.style.cursor = 'auto'
     cubeScene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose()
@@ -95,13 +95,16 @@ export function CubeModel() {
       _euler.set(configState.cubeRot.x, configState.cubeRot.y, configState.cubeRot.z)
       _extraRot.setFromEuler(_euler)
 
-      if (mouseFollowActive.current && isHovering.current) {
-        const angle = Math.atan2(mouseCurrent.current.x, mouseCurrent.current.z)
+      if (isHovering.current) {
+        const angle = Math.atan2(
+          mouseCurrent.current.x - configState.cubePos.x,
+          mouseCurrent.current.z - configState.cubePos.z
+        )
         _euler.set(0, angle, 0)
         _targetQuat.setFromEuler(_euler)
         _targetQuat.multiply(_extraRot)
         cubeRef.current.quaternion.slerp(_targetQuat, Math.min(delta * 4, 1))
-        autoRotY.current = angle
+        autoRotY.current = cubeRef.current.rotation.y
       } else {
         autoRotY.current += 0.005
         _euler.set(0, autoRotY.current, 0)
@@ -126,7 +129,6 @@ export function CubeModel() {
     <group
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation()
-        mouseFollowActive.current = true
         useSceneStore.getState().spawnParticle()
       }}
       onPointerOver={() => { document.body.style.cursor = 'pointer'; isHovering.current = true }}

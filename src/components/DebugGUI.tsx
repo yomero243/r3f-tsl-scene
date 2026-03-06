@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import GUI from 'lil-gui'
-import { floorUniforms, cubeUniforms } from '../constants'
+import { floorUniforms, cubeUniforms, SYSTEM } from '../constants'
 import { configState } from '../config'
 
 export const guiState = { envIntensity: 0.06, envRotY: -18 }
@@ -39,6 +39,21 @@ function saveAll() {
       scale: configState.cubeScale,
     },
     camera: { ...configState.camera },
+    particles: {
+      orbitStrength: SYSTEM.B_STRENGTH,
+      sizeScale: SYSTEM.SIZE_SCALE,
+      damping: SYSTEM.DAMPING,
+      eMouse: SYSTEM.E_MOUSE,
+      eGuide: SYSTEM.E_GUIDE,
+      eCube: SYSTEM.E_CUBE,
+      repulsion: SYSTEM.REPULSION,
+      repulsionRadius: SYSTEM.REPULSION_RADIUS,
+      maxSpeed: SYSTEM.MAX_SPEED,
+      minOrbitSpeed: SYSTEM.MIN_ORBIT_SPEED,
+      orbitForce: SYSTEM.ORBIT_FORCE,
+      orbitTargetSpeed: SYSTEM.ORBIT_TARGET_SPEED,
+      cubeRadius: SYSTEM.CUBE_RADIUS,
+    },
   }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
 }
@@ -76,6 +91,21 @@ function loadAll() {
     }
     if (d.camera) {
       Object.assign(configState.camera, d.camera)
+    }
+    if (d.particles) {
+      SYSTEM.B_STRENGTH       = d.particles.orbitStrength    ?? SYSTEM.B_STRENGTH
+      SYSTEM.SIZE_SCALE       = d.particles.sizeScale        ?? SYSTEM.SIZE_SCALE
+      SYSTEM.DAMPING          = d.particles.damping          ?? SYSTEM.DAMPING
+      SYSTEM.E_MOUSE          = d.particles.eMouse           ?? SYSTEM.E_MOUSE
+      SYSTEM.E_GUIDE          = d.particles.eGuide           ?? SYSTEM.E_GUIDE
+      SYSTEM.E_CUBE           = d.particles.eCube            ?? SYSTEM.E_CUBE
+      SYSTEM.REPULSION        = d.particles.repulsion        ?? SYSTEM.REPULSION
+      SYSTEM.REPULSION_RADIUS = d.particles.repulsionRadius  ?? SYSTEM.REPULSION_RADIUS
+      SYSTEM.MAX_SPEED        = d.particles.maxSpeed         ?? SYSTEM.MAX_SPEED
+      SYSTEM.MIN_ORBIT_SPEED  = d.particles.minOrbitSpeed    ?? SYSTEM.MIN_ORBIT_SPEED
+      SYSTEM.ORBIT_FORCE        = d.particles.orbitForce       ?? SYSTEM.ORBIT_FORCE
+      SYSTEM.ORBIT_TARGET_SPEED = d.particles.orbitTargetSpeed ?? SYSTEM.ORBIT_TARGET_SPEED
+      SYSTEM.CUBE_RADIUS        = d.particles.cubeRadius        ?? SYSTEM.CUBE_RADIUS
     }
   } catch {
     // localStorage corrupto — ignorar
@@ -180,6 +210,46 @@ export function DebugGUI() {
     cubeFolder.add(cp, 'scale', 0.1, 5, 0.01).name('scale')
       .onChange((v: number) => { configState.cubeScale = v; saveAll() })
 
+    // ── Particles ───────────────────────────────────────────
+    const particlesFolder = gui.addFolder('Particles')
+    const pp = {
+      orbitStrength:  SYSTEM.B_STRENGTH,
+      sizeScale:      SYSTEM.SIZE_SCALE,
+      damping:        SYSTEM.DAMPING,
+      eMouse:         SYSTEM.E_MOUSE,
+      eGuide:         SYSTEM.E_GUIDE,
+      eCube:          SYSTEM.E_CUBE,
+      repulsion:      SYSTEM.REPULSION,
+      repulsionRadius: SYSTEM.REPULSION_RADIUS,
+      maxSpeed:       SYSTEM.MAX_SPEED,
+      minOrbitSpeed:  SYSTEM.MIN_ORBIT_SPEED,
+      orbitForce:       SYSTEM.ORBIT_FORCE,
+      orbitTargetSpeed: SYSTEM.ORBIT_TARGET_SPEED,
+      cubeRadius:       SYSTEM.CUBE_RADIUS,
+    }
+    particlesFolder.add(pp, 'orbitTargetSpeed', 0, 10, 0.1).name('orbit speed')
+      .onChange((v: number) => { SYSTEM.ORBIT_TARGET_SPEED = v; saveAll() })
+    particlesFolder.add(pp, 'orbitForce', 0, 20, 0.1).name('orbit force (gain)')
+      .onChange((v: number) => { SYSTEM.ORBIT_FORCE = v; saveAll() })
+    particlesFolder.add(pp, 'orbitStrength', 0, 20, 0.1).name('B field strength')
+      .onChange((v: number) => { SYSTEM.B_STRENGTH = v; saveAll() })
+    particlesFolder.add(pp, 'minOrbitSpeed', 0, 6, 0.05).name('min orbit speed')
+      .onChange((v: number) => { SYSTEM.MIN_ORBIT_SPEED = v; saveAll() })
+    particlesFolder.add(pp, 'maxSpeed', 1, 20, 0.1).name('max speed')
+      .onChange((v: number) => { SYSTEM.MAX_SPEED = v; saveAll() })
+    particlesFolder.add(pp, 'damping', 0, 20, 0.05).name('damping')
+      .onChange((v: number) => { SYSTEM.DAMPING = v; saveAll() })
+    particlesFolder.add(pp, 'eMouse', 0, 200, 0.5).name('mouse attraction')
+      .onChange((v: number) => { SYSTEM.E_MOUSE = v; saveAll() })
+    particlesFolder.add(pp, 'eGuide', 0, 400, 1).name('guide ball attraction')
+      .onChange((v: number) => { SYSTEM.E_GUIDE = v; saveAll() })
+    particlesFolder.add(pp, 'eCube', 0, 80, 0.5).name('cube attraction')
+      .onChange((v: number) => { SYSTEM.E_CUBE = v; saveAll() })
+    particlesFolder.add(pp, 'cubeRadius', 0.5, 8, 0.1).name('cube bounce radius')
+      .onChange((v: number) => { SYSTEM.CUBE_RADIUS = v; saveAll() })
+    particlesFolder.add(pp, 'sizeScale', 0.1, 5, 0.05).name('size scale')
+      .onChange((v: number) => { SYSTEM.SIZE_SCALE = v; saveAll() })
+
     // ── Camera ──────────────────────────────────────────────
     const camFolder = gui.addFolder('Camera')
     const cam = { ...configState.camera }
@@ -191,8 +261,6 @@ export function DebugGUI() {
       .onChange((v: number) => { configState.camera.height = v; saveAll() })
     camFolder.add(cam, 'targetY', -5, 20, 0.1).name('target Y')
       .onChange((v: number) => { configState.camera.targetY = v; saveAll() })
-
-    saveAll()
 
     return () => { gui.destroy() }
   }, [])

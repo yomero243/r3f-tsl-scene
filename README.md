@@ -1,73 +1,98 @@
-# React + TypeScript + Vite
+# r3f-tsl-scene
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive 3D scene built with React Three Fiber and Three Shading Language (TSL), rendered via the WebGPU backend of Three.js.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+A real-time WebGPU scene featuring:
 
-## React Compiler
+- **Particle system** — 30 instanced billboard particles with orbital physics, mouse/cube repulsion, and a multi-layer glow shader (core, rim, outer glow, sparkle) written entirely in TSL.
+- **Interactive GLTF cube** — physically-based glass/metal material defined with TSL nodes (`MeshPhysicalNodeMaterial`). The cube follows the mouse cursor on a floor plane and responds to click events that spawn particles.
+- **Procedural floor** — noise-texture-driven metalness/roughness map and radial opacity falloff, all authored in TSL.
+- **Debug GUI** — `lil-gui` panel for tuning material uniforms at runtime; state persists via `localStorage`.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Tech Stack
 
-## Expanding the ESLint configuration
+| Package | Version |
+|---|---|
+| React | 19.2 |
+| @react-three/fiber | 9.5 |
+| @react-three/drei | 10.7 |
+| Three.js (WebGPU) | 0.183 |
+| Zustand | 5.0 |
+| lil-gui | 0.21 |
+| Vite | 8.0 (beta) |
+| TypeScript | 5.9 |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Requirements
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+WebGPU support is mandatory. Use a compatible browser:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- Chrome / Edge 113+
+- Safari 18+
+- Firefox Nightly (flag required)
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Getting Started
+
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open `http://localhost:5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Other scripts
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build    # Type-check + production build
+npm run preview  # Serve production build locally
+npm run lint     # ESLint
 ```
+
+## Project Structure
+
+```
+r3f-tsl-scene/
+├── public/
+│   └── assets/              # Static assets served at /assets/*
+│       ├── cube.glb
+│       ├── cube_background.webp
+│       ├── cube_normals.webp
+│       ├── cube_noise.webp
+│       ├── floor_noise.webp
+│       ├── point.png
+│       └── circle.webp
+└── src/
+    ├── main.tsx             # React entry point
+    ├── App.tsx              # WebGPU renderer init + Canvas setup
+    ├── constants.ts         # TSL uniforms, physics constants, tint palette
+    ├── store.ts             # Zustand store (particle spawn, shared mutable state)
+    ├── config.ts            # Mutable scene config (cube position, etc.)
+    └── components/
+        ├── CoreSystem.tsx   # Instanced particle mesh + TSL shader + physics loop
+        ├── CubeModel.tsx    # GLTF cube with TSL PBR material + mouse tracking
+        ├── Floor.tsx        # Reflective floor with TSL noise material
+        ├── CameraController.tsx  # Orbit-style camera
+        └── DebugGUI.tsx     # lil-gui panel + localStorage persistence
+```
+
+## Architecture Notes
+
+### WebGPU Renderer
+
+`App.tsx` creates a `WebGPURenderer` imperatively before mounting the R3F `<Canvas>`, then passes it via `gl={() => rendererRef.current}`. This pattern is required for R3F v9 when using the WebGPU backend, since R3F does not create a `WebGPURenderer` by default.
+
+### TSL Shaders
+
+All materials use TSL node graphs instead of raw GLSL:
+
+- `CoreSystem` — `MeshBasicNodeMaterial` with a custom `colorNode` compositing core glow, rim, outer glow, and sparkle layers driven by `shaderUniforms` in `constants.ts`.
+- `CubeModel` — `MeshPhysicalNodeMaterial` with `normalMapNode`, `colorNode`, and PBR channel nodes wired to `cubeUniforms`.
+- `Floor` — `MeshPhysicalNodeMaterial` with noise-driven `colorNode`, `metalnessNode`, `roughnessNode`, and `opacityNode`.
+
+### State
+
+- **Zustand** (`store.ts`) — particle count and spawn sequencing shared across components.
+- **`sharedState`** (`store.ts`) — plain mutable object for high-frequency per-frame data (mouse world position, cube center) to avoid React re-renders in the render loop.
+- **`configState`** (`config.ts`) — mutable scene configuration referenced by components.
+- **TSL uniforms** (`constants.ts`) — `uniform()` nodes that the debug GUI mutates directly; changes propagate to the GPU without re-creating materials.
