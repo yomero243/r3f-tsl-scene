@@ -15,7 +15,7 @@ interface SceneStore {
 }
 
 export const useSceneStore = create<SceneStore>((set) => ({
-  visibleCount: 1,
+  visibleCount: 0,
   guideIndex: 0,
   guideColorIndex: 0,
   spawnParticle: () => set((state) => {

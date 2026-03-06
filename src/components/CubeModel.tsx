@@ -22,6 +22,7 @@ export function CubeModel() {
   const raycaster = useRef(new THREE.Raycaster())
   const floorPlane = useRef(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   const isHovering = useRef(false)
+  const mouseFollowActive = useRef(false)
   const autoRotY = useRef(0)
   const cubeLightRef = useRef<THREE.PointLight>(null)
 
@@ -49,7 +50,7 @@ export function CubeModel() {
         mat.roughnessNode = cubeUniforms.roughness
         mat.transparent = true
         mat.opacityNode = cubeUniforms.opacity
-        mat.side = THREE.DoubleSide
+        mat.side = THREE.FrontSide
         mat.transmissionNode = cubeUniforms.transmission
         mat.iorNode = cubeUniforms.ior
         mat.thicknessNode = cubeUniforms.thickness
@@ -89,11 +90,12 @@ export function CubeModel() {
 
     if (cubeRef.current) {
       cubeRef.current.position.set(configState.cubePos.x, centerY, configState.cubePos.z)
+      cubeRef.current.scale.setScalar(configState.cubeScale)
 
       _euler.set(configState.cubeRot.x, configState.cubeRot.y, configState.cubeRot.z)
       _extraRot.setFromEuler(_euler)
 
-      if (isHovering.current) {
+      if (mouseFollowActive.current && isHovering.current) {
         const angle = Math.atan2(mouseCurrent.current.x, mouseCurrent.current.z)
         _euler.set(0, angle, 0)
         _targetQuat.setFromEuler(_euler)
@@ -124,26 +126,14 @@ export function CubeModel() {
     <group
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation()
+        mouseFollowActive.current = true
         useSceneStore.getState().spawnParticle()
       }}
       onPointerOver={() => { document.body.style.cursor = 'pointer'; isHovering.current = true }}
       onPointerOut={() => { document.body.style.cursor = 'auto'; isHovering.current = false }}
     >
       <primitive ref={cubeRef} object={cubeScene} />
-      {/* Inner glowing core - nested spheres for volumetric glow */}
-      <mesh position={[configState.cubePos.x, cubeY, configState.cubePos.z]}>
-        <sphereGeometry args={[0.28, 16, 16]} />
-        <meshBasicMaterial color="#00ffcc" toneMapped={false} />
-      </mesh>
-      <mesh position={[configState.cubePos.x, cubeY, configState.cubePos.z]}>
-        <sphereGeometry args={[0.55, 16, 16]} />
-        <meshBasicMaterial color="#00ffcc" toneMapped={false} transparent opacity={0.35} />
-      </mesh>
-      <mesh position={[configState.cubePos.x, cubeY, configState.cubePos.z]}>
-        <sphereGeometry args={[0.9, 16, 16]} />
-        <meshBasicMaterial color="#00ddbb" toneMapped={false} transparent opacity={0.12} />
-      </mesh>
-      <pointLight
+<pointLight
         ref={cubeLightRef}
         position={[configState.cubePos.x, cubeY, configState.cubePos.z]}
         intensity={LIGHTS.cubeLightIntensity}

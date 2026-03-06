@@ -45,21 +45,21 @@ export const TINTS: [number, number, number][] = [
 
 export const cubeUniforms = {
   colorTint: uniform(new THREE.Color('#c4c4c4')),
-  metalness: uniform(0.91),
-  roughness: uniform(0.06),
-  opacity: uniform(0.52),
-  transmission: uniform(0.66),
-  ior: uniform(2.24),
-  thickness: uniform(3.4),
-  clearcoat: uniform(0.54),
-  clearcoatRoughness: uniform(0.64),
+  metalness: uniform(0.61),
+  roughness: uniform(0.3),
+  opacity: uniform(0.54),
+  transmission: uniform(0.89),
+  ior: uniform(2.05),
+  thickness: uniform(0.6),
+  clearcoat: uniform(0.36),
+  clearcoatRoughness: uniform(0.59),
 }
 
 export const floorUniforms = {
   textureScaleX: uniform(8.1),
   textureScaleY: uniform(2.8),
-  metalnessWhite: uniform(0.50),
-  metalnessBlack: uniform(1.0),
-  roughnessWhite: uniform(1.0),
-  roughnessBlack: uniform(0.22),
+  metalnessWhite: uniform(1.0),
+  metalnessBlack: uniform(0.78),
+  roughnessWhite: uniform(0.4),
+  roughnessBlack: uniform(0.12),
 }

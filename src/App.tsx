@@ -7,6 +7,7 @@ import { Floor } from './components/Floor'
 import { CoreSystem } from './components/CoreSystem'
 import { CubeModel } from './components/CubeModel'
 import { CameraController } from './components/CameraController'
+import { DebugGUI, EnvSync } from './components/DebugGUI'
 
 export { configState } from './config'
 
@@ -49,6 +50,7 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative', backgroundImage: 'url(/assets/cube_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+      <DebugGUI />
       <canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
@@ -70,7 +72,8 @@ export default function App() {
           <ambientLight intensity={0.2} />
           <directionalLight position={[5, 10, 5]} intensity={0.8} />
 
-          <Environment preset="warehouse" environmentIntensity={0.5} />
+          <Environment preset="studio" />
+          <EnvSync />
 
           <CameraController />
 
