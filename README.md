@@ -3,9 +3,10 @@
 Interactive 3D scene built with React Three Fiber and Three Shading Language (TSL), rendered via the WebGPU backend of Three.js.
 
 ## Overview
+<img width="549" height="796" alt="image" src="https://github.com/user-attachments/assets/b7dbbaeb-0792-4c0c-bdb8-0f6737bd0d2a" />
 
 A real-time WebGPU scene featuring:
-
+lil-gui.js?v=d163b3e5:1433 gui.add faile
 - **Particle system** — 30 instanced billboard particles with orbital physics, mouse/cube repulsion, and a multi-layer glow shader (core, rim, outer glow, sparkle) written entirely in TSL.
 - **Interactive GLTF cube** — physically-based glass/metal material defined with TSL nodes (`MeshPhysicalNodeMaterial`). The cube follows the mouse cursor on a floor plane and responds to click events that spawn particles.
 - **Procedural floor** — noise-texture-driven metalness/roughness map and radial opacity falloff, all authored in TSL.
