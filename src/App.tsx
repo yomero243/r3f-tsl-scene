@@ -1,6 +1,6 @@
-import { Suspense, useRef, useState, useEffect } from 'react'
+import { Suspense, useRef, useState, useEffect, useCallback } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Environment, Stats } from '@react-three/drei'
+import { Environment, Stats as StatsLazy } from '@react-three/drei'
 import * as THREE from 'three'
 import { WebGPURenderer } from 'three/webgpu'
 import { Floor } from './components/Floor'
@@ -14,11 +14,20 @@ import { useSceneStore } from './store'
 export { configState } from './config'
 
 export default function App() {
+  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isReady, setIsReady] = useState(false)
   const [gpuError, setGpuError] = useState(false)
   const rendererRef = useRef<WebGPURenderer | null>(null)
-  const cursorHidden = useSceneStore((s) => s.cursorHidden)
+
+  // Cursor via DOM directo — sin re-render de React
+  useEffect(() => {
+    return useSceneStore.subscribe((s) => {
+      if (containerRef.current) containerRef.current.style.cursor = s.cursorHidden ? 'none' : 'default'
+    })
+  }, [])
+
+  const getGL = useCallback(() => rendererRef.current as any, [])
 
   useEffect(() => {
     if (!canvasRef.current || isReady) return
@@ -54,7 +63,7 @@ export default function App() {
   }, [])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', backgroundImage: 'url(/assets/cube_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center', cursor: cursorHidden ? 'none' : 'default' }}>
+    <div ref={containerRef} style={{ width: '100vw', height: '100vh', position: 'relative', backgroundImage: 'url(/assets/cube_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'default' }}>
 <canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}
@@ -78,10 +87,10 @@ export default function App() {
           camera={{ position: [0, 4.0, 20], fov: 45, far: 2000 }}
           dpr={[1, 2]}
           style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2 }}
-          gl={() => rendererRef.current as any}
+          gl={getGL}
         >
-<Environment preset="studio" />
-          <Stats />
+          <Environment preset="studio" />
+          {import.meta.env.DEV && <StatsLazy />}
           <EnvSync />
 
           <CameraController />
