@@ -2,7 +2,7 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { PointsNodeMaterial } from 'three/webgpu';
-import { attribute, float, vec3, mix } from 'three/tsl';
+import { attribute, float, vec3, mix, div } from 'three/tsl';
 import { TINTS } from '../constants';
 import { useSceneStore, sharedState } from '../store';
 
@@ -21,7 +21,7 @@ const Particles: React.FC = () => {
     mat.blending    = THREE.AdditiveBlending;
     mat.toneMapped  = false;
 
-    const vAge = attribute('age', 'float').div(attribute('lifespan', 'float'));
+    const vAge = div(attribute('age', 'float'), attribute('lifespan', 'float'));
 
     // birthColor: color del guide en el momento de nacer — se mantiene toda la vida
     // al morir transiciona al amarillo original
@@ -54,7 +54,7 @@ const Particles: React.FC = () => {
     return () => { material.dispose(); };
   }, [material]);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!pointsRef.current) return;
 
     const target = sharedState.guidePos;
@@ -112,10 +112,10 @@ const Particles: React.FC = () => {
       <pointLight ref={lightRef} color={0xffdd22} intensity={60} distance={12} decay={2} />
       <points ref={pointsRef} frustumCulled={false} material={material}>
         <bufferGeometry attach="geometry">
-          <bufferAttribute attach="attributes-position"   count={PARTICLE_COUNT} array={positions}   itemSize={3} />
-          <bufferAttribute attach="attributes-age"        count={PARTICLE_COUNT} array={ages}        itemSize={1} />
-          <bufferAttribute attach="attributes-lifespan"   count={PARTICLE_COUNT} array={lifespans}   itemSize={1} />
-          <bufferAttribute attach="attributes-birthColor" count={PARTICLE_COUNT} array={birthColors} itemSize={3} />
+          <bufferAttribute attach="attributes-position"   args={[positions,   3]} />
+          <bufferAttribute attach="attributes-age"        args={[ages,        1]} />
+          <bufferAttribute attach="attributes-lifespan"   args={[lifespans,   1]} />
+          <bufferAttribute attach="attributes-birthColor" args={[birthColors, 3]} />
         </bufferGeometry>
       </points>
     </>

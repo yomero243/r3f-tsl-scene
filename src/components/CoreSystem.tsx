@@ -104,7 +104,7 @@ export function CoreSystem() {
   const _lightOffset = useMemo(() => new THREE.Vector3(), [])
   const _guideTarget = useMemo(() => new THREE.Vector3(), [])
   const _ray = useMemo(() => new THREE.Ray(), [])
-  const _sphere = useMemo(() => new THREE.Sphere(), [])
+  // const _sphere = useMemo(() => new THREE.Sphere(), [])
   const _guidePlane = useMemo(() => new THREE.Plane(), [])
   const _camDir = useMemo(() => new THREE.Vector3(), [])
 
