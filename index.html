@@ -2,9 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/assets/circle.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>r3f-tsl-scene</title>
+    <meta name="description" content="Interactive 3D scene built with React Three Fiber, Three.js WebGPU and TSL shaders." />
+    <title>R3F TSL Scene</title>
+
+    <!-- LCP: preload background image so browser fetches it immediately -->
+    <link rel="preload" as="image" href="/assets/cube_background.webp" fetchpriority="high" />
+
+    <!-- Preload key textures used by first-paint materials -->
+    <link rel="preload" as="image" href="/assets/floor_noise.webp" />
+    <link rel="preload" as="image" href="/assets/point.png" />
+
+    <!-- DNS + connection for drei Environment HDR -->
+    <link rel="preconnect" href="https://dl.polyhaven.org" />
+    <link rel="dns-prefetch" href="https://dl.polyhaven.org" />
   </head>
   <body>
     <div id="root"></div>
