@@ -65,7 +65,7 @@ export function CubeModel() {
   }, [scene, normalTex, noiseTex])
 
   useEffect(() => () => {
-    document.body.style.cursor = 'auto'
+    // cursor managed globally via App
     cubeScene.traverse((child) => {
       if (child instanceof THREE.Mesh) {
         child.geometry.dispose()
@@ -129,10 +129,11 @@ export function CubeModel() {
     <group
       onClick={(e: ThreeEvent<MouseEvent>) => {
         e.stopPropagation()
+        useSceneStore.getState().hideCursor()
         useSceneStore.getState().spawnParticle()
       }}
-      onPointerOver={() => { document.body.style.cursor = 'pointer'; isHovering.current = true }}
-      onPointerOut={() => { document.body.style.cursor = 'auto'; isHovering.current = false }}
+      onPointerOver={() => { isHovering.current = true }}
+      onPointerOut={() => { isHovering.current = false }}
     >
       <primitive ref={cubeRef} object={cubeScene} />
 <pointLight

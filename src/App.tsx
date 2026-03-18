@@ -8,6 +8,8 @@ import { CoreSystem } from './components/CoreSystem'
 import { CubeModel } from './components/CubeModel'
 import { CameraController } from './components/CameraController'
 import { EnvSync } from './components/DebugGUI'
+import Particles from './components/Particles'
+import { useSceneStore } from './store'
 
 export { configState } from './config'
 
@@ -16,6 +18,7 @@ export default function App() {
   const [isReady, setIsReady] = useState(false)
   const [gpuError, setGpuError] = useState(false)
   const rendererRef = useRef<WebGPURenderer | null>(null)
+  const cursorHidden = useSceneStore((s) => s.cursorHidden)
 
   useEffect(() => {
     if (!canvasRef.current || isReady) return
@@ -51,10 +54,10 @@ export default function App() {
   }, [])
 
   return (
-    <div style={{ width: '100vw', height: '100vh', position: 'relative', backgroundImage: 'url(/assets/cube_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', backgroundImage: 'url(/assets/cube_background.webp)', backgroundSize: 'cover', backgroundPosition: 'center', cursor: cursorHidden ? 'none' : 'default' }}>
 <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none' }}
       />
 
       {gpuError && (
@@ -74,7 +77,7 @@ export default function App() {
         <Canvas
           camera={{ position: [0, 4.0, 20], fov: 45, far: 2000 }}
           dpr={[1, 2]}
-          style={{ position: 'absolute', top: 0, left: 0, zIndex: 2 }}
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2 }}
           gl={() => rendererRef.current as any}
         >
 <Environment preset="studio" />
@@ -88,6 +91,7 @@ export default function App() {
             <CubeModel />
             <CoreSystem />
           </Suspense>
+          <Particles />
         </Canvas>
       )}
     </div>

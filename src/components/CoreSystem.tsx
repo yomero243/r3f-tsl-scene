@@ -105,6 +105,8 @@ export function CoreSystem() {
   const _guideTarget = useMemo(() => new THREE.Vector3(), [])
   const _ray = useMemo(() => new THREE.Ray(), [])
   const _sphere = useMemo(() => new THREE.Sphere(), [])
+  const _guidePlane = useMemo(() => new THREE.Plane(), [])
+  const _camDir = useMemo(() => new THREE.Vector3(), [])
 
   useEffect(() => {
     const group = lightGroupRef.current
@@ -132,8 +134,23 @@ export function CoreSystem() {
 
     _ray.origin.setFromMatrixPosition(camera.matrixWorld)
     _ray.direction.set(pointer.x, pointer.y, 0.5).unproject(camera).sub(_ray.origin).normalize()
-    _sphere.set(cube, SYSTEM.BOUNDARY * 0.6)
-    if (!_ray.intersectSphere(_sphere, _guideTarget)) _guideTarget.copy(mouse)
+    // Plano perpendicular a la cámara centrado en el cubo
+    // El guide sigue al mouse en pantalla sin escaparse en Y o Z
+    camera.getWorldDirection(_camDir)
+    _guidePlane.setFromNormalAndCoplanarPoint(_camDir, cube)
+    _ray.origin.setFromMatrixPosition(camera.matrixWorld)
+    _ray.direction.set(pointer.x, pointer.y, 0.5).unproject(camera).sub(_ray.origin).normalize()
+    if (!_ray.intersectPlane(_guidePlane, _guideTarget)) _guideTarget.copy(cube)
+
+    // Limitar radio de movimiento alrededor del cubo
+    const maxRadius = SYSTEM.BOUNDARY * 1.5
+    _dir.copy(_guideTarget).sub(cube)
+    if (_dir.length() > maxRadius) {
+      _dir.setLength(maxRadius)
+      _guideTarget.copy(cube).add(_dir)
+    }
+    _guideTarget.y = Math.max(0.1, _guideTarget.y)
+    _guideTarget.z = cube.z + pointer.y * 5.0
 
     _B.set(SYSTEM.B_STRENGTH * 0.4, SYSTEM.B_STRENGTH, 0)
 
@@ -159,6 +176,7 @@ export function CoreSystem() {
         _dir.lerp(_guideTarget, Math.min(delta * 15, 1.0))
         pos[i3] = _dir.x; pos[i3 + 1] = _dir.y; pos[i3 + 2] = _dir.z
         vel[i3] = 0; vel[i3 + 1] = 0; vel[i3 + 2] = 0
+        sharedState.guidePos.set(pos[i3], pos[i3 + 1], pos[i3 + 2])
       } else {
         _force.set(0, 0, 0)
 
