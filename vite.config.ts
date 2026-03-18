@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   esbuild: {
     keepNames: true,
-  },
+  } as any,
   build: {
     target: 'esnext',
   },
