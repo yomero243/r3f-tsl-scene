@@ -4,7 +4,7 @@ import GUI from 'lil-gui'
 import { floorUniforms, cubeUniforms, SYSTEM } from '../constants'
 import { configState } from '../config'
 
-export const guiState = { envIntensity: 0.06, envRotY: -18 }
+export const guiState = { envIntensity: 0.23, envRotY: 141 }
 
 // ── Persistence ─────────────────────────────────────────────────────────────
 
