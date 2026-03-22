@@ -1,18 +1,52 @@
 # r3f-tsl-scene
 
-Interactive 3D scene built with React Three Fiber and Three Shading Language (TSL), rendered via the WebGPU backend of Three.js.
+[![WebGPU](https://img.shields.io/badge/WebGPU-Enabled-4285F4?style=flat-square&logo=googlechrome&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API)
+[![TSL](https://img.shields.io/badge/TSL-Three_Shading_Language-FF6B35?style=flat-square)](https://threejs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![Three.js](https://img.shields.io/badge/Three.js-0.183-black?style=flat-square&logo=threedotjs)](https://threejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-## Overview
-<img width="549" height="796" alt="image" src="https://github.com/user-attachments/assets/b7dbbaeb-0792-4c0c-bdb8-0f6737bd0d2a" />
+> Interactive 3D scene built with **React Three Fiber** and **Three Shading Language (TSL)**, rendered via the WebGPU backend of Three.js. A showcase of next-generation real-time graphics on the web.
 
-A real-time WebGPU scene featuring:
-lil-gui.js?v=d163b3e5:1433 gui.add faile
-- **Particle system** — 30 instanced billboard particles with orbital physics, mouse/cube repulsion, and a multi-layer glow shader (core, rim, outer glow, sparkle) written entirely in TSL.
-- **Interactive GLTF cube** — physically-based glass/metal material defined with TSL nodes (`MeshPhysicalNodeMaterial`). The cube follows the mouse cursor on a floor plane and responds to click events that spawn particles.
-- **Procedural floor** — noise-texture-driven metalness/roughness map and radial opacity falloff, all authored in TSL.
-- **Debug GUI** — `lil-gui` panel for tuning material uniforms at runtime; state persists via `localStorage`.
+## 🖼️ Preview
 
-## Tech Stack
+<img width="549" height="796" alt="r3f-tsl-scene preview" src="https://github.com/user-attachments/assets/b7dbbaeb-0792-4c0c-bdb8-0f6737bd0d2a" />
+
+## 🔴 Live Demo
+
+> ⚠️ Requires a **WebGPU-compatible browser** (Chrome 113+, Edge 113+, Safari 18+)
+
+Deployed on Netlify — check the [live demo](https://github.com/yomero243/r3f-tsl-scene) or clone and run locally.
+
+---
+
+## ✨ Features
+
+- 🌌 **Instanced Particle System** — 30 billboard particles with orbital physics, mouse/cube repulsion, and a **multi-layer glow shader** (core · rim · outer glow · sparkle) written entirely in TSL nodes
+- 🧊 **Interactive GLTF Cube** — physically-based glass/metal material using `MeshPhysicalNodeMaterial` with TSL node graph; tracks mouse on the floor plane and spawns particles on click
+- 🏗️ **Procedural Floor** — noise-texture-driven metalness/roughness map and radial opacity falloff, 100% TSL authored
+- 🎛️ **Runtime Debug GUI** — `lil-gui` panel for tuning material uniforms; state persists via `localStorage`
+- ⚡ **WebGPU Backend** — hardware-accelerated rendering via Three.js `WebGPURenderer`
+- 🗄️ **Zustand State** — clean reactive state management for particle spawning and shared mutable scene data
+
+---
+
+## 🤔 Why TSL?
+
+**TSL (Three Shading Language)** is the future of material authoring in Three.js. It replaces the legacy `ShaderMaterial` approach with a composable **node graph system** that:
+
+- 🔁 **Runs on any backend** — WebGPU, WebGL, and future renderers without rewriting shaders
+- 🧩 **Composable** — build complex effects by wiring together reusable node functions
+- 🔒 **Type-safe** — integrate naturally with TypeScript tooling
+- 🛠️ **Debuggable** — no raw GLSL strings; the graph is inspectable and serializable
+- 🚀 **Future-proof** — TSL is the path Three.js core is investing in for r180+
+
+This project demonstrates TSL in production: every material — particles, glass cube, procedural floor — is built with TSL nodes instead of raw GLSL.
+
+---
+
+## 🛠️ Tech Stack
 
 | Package | Version |
 |---|---|
@@ -25,17 +59,25 @@ lil-gui.js?v=d163b3e5:1433 gui.add faile
 | Vite | 8.0 (beta) |
 | TypeScript | 5.9 |
 
-## Requirements
+---
+
+## ⚙️ Requirements
 
 WebGPU support is mandatory. Use a compatible browser:
 
-- Chrome / Edge 113+
-- Safari 18+
-- Firefox Nightly (flag required)
+| Browser | Version |
+|---|---|
+| Chrome / Edge | 113+ |
+| Safari | 18+ |
+| Firefox Nightly | flag required |
 
-## Getting Started
+---
+
+## 🚀 Getting Started
 
 ```bash
+git clone https://github.com/yomero243/r3f-tsl-scene.git
+cd r3f-tsl-scene
 npm install
 npm run dev
 ```
@@ -50,12 +92,14 @@ npm run preview  # Serve production build locally
 npm run lint     # ESLint
 ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 ```
 r3f-tsl-scene/
 ├── public/
-│   └── assets/              # Static assets served at /assets/*
+│   └── assets/              # Static assets
 │       ├── cube.glb
 │       ├── cube_background.webp
 │       ├── cube_normals.webp
@@ -67,7 +111,7 @@ r3f-tsl-scene/
     ├── main.tsx             # React entry point
     ├── App.tsx              # WebGPU renderer init + Canvas setup
     ├── constants.ts         # TSL uniforms, physics constants, tint palette
-    ├── store.ts             # Zustand store (particle spawn, shared mutable state)
+    ├── store.ts             # Zustand store (particle spawn, shared state)
     ├── config.ts            # Mutable scene config (cube position, etc.)
     └── components/
         ├── CoreSystem.tsx   # Instanced particle mesh + TSL shader + physics loop
@@ -77,23 +121,22 @@ r3f-tsl-scene/
         └── DebugGUI.tsx     # lil-gui panel + localStorage persistence
 ```
 
-## Architecture Notes
+---
 
-### WebGPU Renderer
+## 🏗️ Architecture Notes
 
-`App.tsx` creates a `WebGPURenderer` imperatively before mounting the R3F `<Canvas>`, then passes it via `gl={() => rendererRef.current}`. This pattern is required for R3F v9 when using the WebGPU backend, since R3F does not create a `WebGPURenderer` by default.
+- **TSL uniforms** are defined once in `constants.ts` and referenced across components; lil-gui mutates them at runtime without triggering React re-renders.
+- The **physics loop** runs inside `useFrame` with a fixed timestep; repulsion forces between particles and the cube are computed each frame in `CoreSystem.tsx`.
+- **Glow layers** are composited via additive blending in a single draw call — no post-processing pass needed.
 
-### TSL Shaders
+---
 
-All materials use TSL node graphs instead of raw GLSL:
+## 👨‍💻 About
 
-- `CoreSystem` — `MeshBasicNodeMaterial` with a custom `colorNode` compositing core glow, rim, outer glow, and sparkle layers driven by `shaderUniforms` in `constants.ts`.
-- `CubeModel` — `MeshPhysicalNodeMaterial` with `normalMapNode`, `colorNode`, and PBR channel nodes wired to `cubeUniforms`.
-- `Floor` — `MeshPhysicalNodeMaterial` with noise-driven `colorNode`, `metalnessNode`, `roughnessNode`, and `opacityNode`.
+Built by **Gabriel** — Creative 3D Developer & Technical Artist specializing in Three.js, React Three Fiber, WebGPU, and TSL.
 
-### State
+> 💼 **Available for freelance projects** — real-time 3D experiences, WebGL/WebGPU apps, interactive installations, and creative coding. [Let's talk →](https://github.com/yomero243)
 
-- **Zustand** (`store.ts`) — particle count and spawn sequencing shared across components.
-- **`sharedState`** (`store.ts`) — plain mutable object for high-frequency per-frame data (mouse world position, cube center) to avoid React re-renders in the render loop.
-- **`configState`** (`config.ts`) — mutable scene configuration referenced by components.
-- **TSL uniforms** (`constants.ts`) — `uniform()` nodes that the debug GUI mutates directly; changes propagate to the GPU without re-creating materials.
+---
+
+*If this project helped you understand TSL or WebGPU, give it a ⭐ — it helps others discover it too.*
